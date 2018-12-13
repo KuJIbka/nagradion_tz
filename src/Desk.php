@@ -1,6 +1,8 @@
 <?php
 
 class Desk {
+    protected $isBlackMove = false;
+
     private $figures = [];
 
     public function __construct() {
@@ -41,19 +43,34 @@ class Desk {
         $this->figures['h'][8] = new Rook(true);
     }
 
-    public function move($move) {
-        if (!preg_match('/^([a-h])(\d)-([a-h])(\d)$/', $move, $match)) {
-            throw new \Exception("Incorrect move");
+    /**
+     * @param $move
+     * @throws \Exception
+     */
+    public function move($moveString) {
+        $move = MoveCoords::getFromString($this, $moveString);
+
+        $figure = $this->getFigure($move->getFrom());
+        if (!$this->checkMoveOrder($figure)) {
+            throw new \Exception(
+                'Wrong order of move, expect '.
+                $this->getColorLabel($this->isBlackMove).
+                ' get '.$this->getColorLabel($figure->getIsBlack()).
+                ' on move '.$move
+            );
         }
 
-        $xFrom = $match[1];
-        $yFrom = $match[2];
-        $xTo   = $match[3];
-        $yTo   = $match[4];
+        $figure->canMove($this, $move);
 
-        if (isset($this->figures[$xFrom][$yFrom])) {
-            $this->figures[$xTo][$yTo] = $this->figures[$xFrom][$yFrom];
-        }
+        $xFrom = $move->getFrom()->getX();
+        $yFrom = $move->getFrom()->getY();
+
+        $xTo = $move->getTo()->getX();
+        $yTo = $move->getTo()->getY();
+
+        $this->figures[$xTo][$yTo] = $this->figures[$xFrom][$yFrom];
+        $this->isBlackMove = $this->getNextMoveOrder();
+
         unset($this->figures[$xFrom][$yFrom]);
     }
 
@@ -70,5 +87,58 @@ class Desk {
             echo "\n";
         }
         echo "  abcdefgh\n";
+    }
+
+    /**
+     * @param DeskCoords $deskCoords
+     * @return Figure|null
+     */
+    public function findFigure(DeskCoords $deskCoords) {
+        $figure = null;
+        $x = $deskCoords->getX();
+        $y = $deskCoords->getY();
+
+        if (isset($this->figures[$x][$y])) {
+            $figure = $this->figures[$x][$y];
+        }
+        return $figure;
+    }
+
+    /**
+     * @param DeskCoords $deskCoords
+     * @return Figure
+     *
+     * @throws \Exception
+     */
+    public function getFigure(DeskCoords $deskCoords) {
+        $figure = $this->findFigure($deskCoords);
+        if (!$figure) {
+            throw new \Exception('There is no figure on '.$deskCoords);
+        }
+        return $figure;
+    }
+
+    /**
+     * @param Figure $figure
+     * @return bool
+     */
+    public function checkMoveOrder(Figure $figure) {
+        return $this->isBlackMove === $figure->getIsBlack();
+    }
+
+    /**
+     * @param bool $isBlack
+     * @return string
+     */
+    public function getColorLabel($isBlack) {
+        $colors = ['White', 'Black'];
+        return $colors[(bool) $isBlack];
+    }
+
+    /**
+     * @return bool
+     */
+    public function getNextMoveOrder() {
+        return $this->isBlackMove = !$this->isBlackMove;
     }
 }
